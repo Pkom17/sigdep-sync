@@ -1,0 +1,9 @@
+target/
+*.class
+*.jar
+*.sqlite
+*.db
+.idea/
+.vscode/
+*.iml
+.DS_Store

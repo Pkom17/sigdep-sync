@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: sigdep-sync
+
+sigdep:
+  sync:
+    site-code: ${SIGDEP_SITE_CODE:UNKNOWN}
+    central-api-url: ${SIGDEP_CENTRAL_API_URL:http://localhost:8080}
+    batch-size: ${SIGDEP_BATCH_SIZE:500}
+    sync-interval-minutes: ${SIGDEP_SYNC_INTERVAL_MINUTES:15}
+    interval-ms: 900000
+    local-db:
+      url: ${SIGDEP_LOCAL_DB_URL:jdbc:mysql://localhost:3306/openmrs?readOnly=true&useSSL=false}
+      username: ${SIGDEP_LOCAL_DB_USER:sigdep_reader}
+      password: ${SIGDEP_LOCAL_DB_PASSWORD:}
+      driver-class-name: com.mysql.cj.jdbc.Driver
+    buffer-db:
+      url: jdbc:sqlite:${SIGDEP_BUFFER_PATH:/var/lib/sigdep-agent/buffer.sqlite}
+      driver-class-name: org.sqlite.JDBC
+    keycloak:
+      issuer-url: ${SIGDEP_KEYCLOAK_URL:http://localhost:8180}/realms/sigdep
+      client-id: ${SIGDEP_KEYCLOAK_CLIENT_ID:sigdep-agent}
+      client-secret: ${SIGDEP_KEYCLOAK_CLIENT_SECRET:}
+    backfill:
+      enabled: false
+      max-requests-per-minute: 30
+      cron: "0 0 22 * * MON-FRI"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    root: INFO
+    ci.itechciv.sigdep.sync: DEBUG
