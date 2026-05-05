@@ -39,6 +39,9 @@ public class ObsPivot {
         Object[] params = encounterIds.toArray();
 
         Map<Long, Map<String, ObsValue>> result = new HashMap<>();
+        // For value_coded, resolve the concept_name using a French-first locale
+        // ranking so we don't end up with Swahili / Spanish / Creole leaking
+        // through (locale_preferred=1 is set on too many rows in some exports).
         localDb.query(
                 """
                 SELECT o.encounter_id        AS encounter_id,
@@ -47,13 +50,24 @@ public class ObsPivot {
                        o.value_datetime      AS value_datetime,
                        o.value_text          AS value_text,
                        o.value_coded         AS value_coded,
-                       cn.name               AS coded_name
+                       (
+                         SELECT cn.name FROM concept_name cn
+                         WHERE cn.concept_id = o.value_coded
+                           AND cn.voided = 0
+                         ORDER BY
+                           CASE
+                             WHEN cn.locale = 'fr' AND cn.concept_name_type = 'FULLY_SPECIFIED' THEN 1
+                             WHEN cn.locale = 'fr' THEN 2
+                             WHEN cn.locale = 'en' AND cn.concept_name_type = 'FULLY_SPECIFIED' THEN 3
+                             WHEN cn.locale = 'en' THEN 4
+                             ELSE 5
+                           END,
+                           CASE WHEN cn.locale_preferred = 1 THEN 0 ELSE 1 END,
+                           cn.concept_name_id
+                         LIMIT 1
+                       ) AS coded_name
                 FROM obs o
                 JOIN concept c ON c.concept_id = o.concept_id
-                LEFT JOIN concept_name cn
-                       ON cn.concept_id = o.value_coded
-                      AND cn.locale_preferred = 1
-                      AND cn.voided = 0
                 WHERE o.voided = 0 AND o.encounter_id IN (%s)
                 """.formatted(placeholders),
                 rs -> {
