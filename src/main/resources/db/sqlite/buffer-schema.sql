@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS sync_state (
 CREATE TABLE IF NOT EXISTS outbox (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   entity_type   TEXT NOT NULL,
+  source_uuid   TEXT NOT NULL,
+  watermark     TIMESTAMP NOT NULL,
   payload_json  TEXT NOT NULL,
   status        TEXT NOT NULL DEFAULT 'PENDING',
   attempts      INTEGER DEFAULT 0,
@@ -20,4 +22,4 @@ CREATE TABLE IF NOT EXISTS outbox (
   sent_at       TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_outbox_status ON outbox(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_status_entity ON outbox(status, entity_type, id);
