@@ -11,10 +11,12 @@ sigdep:
     interval-ms: 900000
     watermark-initial: 1970-01-01T00:00:00
     identifier-mapping:
-      "[Code ARV]": CODE_ARV
-      "[UPID]": UPID
-      "[CMU]": CMU
-      "[NIN]": NIN
+      # OpenMRS patient_identifier_type.name  ->  core.identifier_types.code
+      # Adjust for site-specific naming. Unmapped types are silently dropped.
+      "[1.Nouvelle Nomenclature de PEC VIH]": CODE_ARV
+      "[2.Ancienne Nomenclature de PEC VIH]": CODE_ARV_OLD
+      "[UPI]": UPID
+      "[CRUID]": CRUID
     local-db:
       jdbc-url: ${SIGDEP_LOCAL_DB_URL:jdbc:mysql://localhost:3306/openmrs?readOnly=true&useSSL=false}
       username: ${SIGDEP_LOCAL_DB_USER:sigdep_reader}
