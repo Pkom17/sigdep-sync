@@ -1,5 +1,7 @@
 package ci.itechciv.sigdep.sync.config;
 
+import java.time.LocalDateTime;
+import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "sigdep.sync")
@@ -8,6 +10,8 @@ public record SyncProperties(
         String centralApiUrl,
         int batchSize,
         int syncIntervalMinutes,
+        LocalDateTime watermarkInitial,
+        Map<String, String> identifierMapping,
         Keycloak keycloak,
         Backfill backfill
 ) {
