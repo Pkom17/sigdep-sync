@@ -25,7 +25,7 @@ public class OutboxRepository {
                 """,
                 entityType.name(),
                 sourceUuid.toString(),
-                watermark,
+                java.sql.Timestamp.valueOf(watermark),
                 payloadJson);
     }
 

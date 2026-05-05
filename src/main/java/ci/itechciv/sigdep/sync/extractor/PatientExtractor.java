@@ -51,7 +51,7 @@ public class PatientExtractor implements DataExtractor {
         List<PatientRow> rows = localDb.query(
                 """
                 SELECT
-                  pat.uuid                         AS patient_uuid,
+                  per.uuid                         AS patient_uuid,
                   per.gender                       AS gender,
                   per.birthdate                    AS birthdate,
                   per.birthdate_estimated          AS birthdate_estimated,
@@ -162,14 +162,14 @@ public class PatientExtractor implements DataExtractor {
         Map<UUID, List<IdentifierDto>> out = new HashMap<>();
         localDb.query(
                 """
-                SELECT pat.uuid                    AS patient_uuid,
+                SELECT per.uuid                    AS patient_uuid,
                        pi.identifier               AS identifier_value,
                        pit.name                    AS type_name,
                        pi.preferred                AS is_preferred
                 FROM patient_identifier pi
                 JOIN patient_identifier_type pit ON pit.patient_identifier_type_id = pi.identifier_type
-                JOIN patient pat                 ON pat.patient_id = pi.patient_id
-                WHERE pi.voided = 0 AND pat.uuid IN (%s)
+                JOIN person per                  ON per.person_id = pi.patient_id
+                WHERE pi.voided = 0 AND per.uuid IN (%s)
                 """.formatted(placeholders),
                 rs -> {
                     String typeName = rs.getString("type_name");

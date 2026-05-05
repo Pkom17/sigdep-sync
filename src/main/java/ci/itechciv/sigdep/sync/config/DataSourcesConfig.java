@@ -1,6 +1,7 @@
 package ci.itechciv.sigdep.sync.config;
 
 import javax.sql.DataSource;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
@@ -25,12 +26,12 @@ public class DataSourcesConfig {
     }
 
     @Bean
-    public JdbcTemplate localJdbcTemplate(DataSource localDataSource) {
-        return new JdbcTemplate(localDataSource);
+    public JdbcTemplate localJdbcTemplate(@Qualifier("localDataSource") DataSource ds) {
+        return new JdbcTemplate(ds);
     }
 
     @Bean
-    public JdbcTemplate bufferJdbcTemplate(DataSource bufferDataSource) {
-        return new JdbcTemplate(bufferDataSource);
+    public JdbcTemplate bufferJdbcTemplate(@Qualifier("bufferDataSource") DataSource ds) {
+        return new JdbcTemplate(ds);
     }
 }

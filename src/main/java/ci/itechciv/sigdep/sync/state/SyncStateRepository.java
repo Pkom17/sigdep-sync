@@ -38,7 +38,7 @@ public class SyncStateRepository {
                   records_sent   = sync_state.records_sent + excluded.records_sent
                 """,
                 entityType.name(),
-                watermark,
+                java.sql.Timestamp.valueOf(watermark),
                 status,
                 recordsSent
         );
