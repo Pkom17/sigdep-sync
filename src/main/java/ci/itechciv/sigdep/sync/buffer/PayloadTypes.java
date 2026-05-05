@@ -1,6 +1,7 @@
 package ci.itechciv.sigdep.sync.buffer;
 
 import ci.itechciv.sigdep.contracts.EntityType;
+import ci.itechciv.sigdep.contracts.dto.ClosureDto;
 import ci.itechciv.sigdep.contracts.dto.DispensationDto;
 import ci.itechciv.sigdep.contracts.dto.PatientDto;
 import ci.itechciv.sigdep.contracts.dto.TreatmentInitiationDto;
@@ -17,7 +18,8 @@ public final class PayloadTypes {
             EntityType.PATIENTS,              PatientDto.class,
             EntityType.VISITS,                VisitDto.class,
             EntityType.DISPENSATIONS,         DispensationDto.class,
-            EntityType.TREATMENT_INITIATIONS, TreatmentInitiationDto.class
+            EntityType.TREATMENT_INITIATIONS, TreatmentInitiationDto.class,
+            EntityType.CLOSURES,              ClosureDto.class
     );
 
     public static Class<?> classFor(EntityType type) {
