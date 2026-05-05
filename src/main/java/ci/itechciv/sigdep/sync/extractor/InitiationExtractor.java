@@ -1,6 +1,7 @@
 package ci.itechciv.sigdep.sync.extractor;
 
 import ci.itechciv.sigdep.contracts.EntityType;
+import ci.itechciv.sigdep.contracts.dto.PediatricInitiationDto;
 import ci.itechciv.sigdep.contracts.dto.TreatmentInitiationDto;
 import ci.itechciv.sigdep.sync.extractor.ObsPivot.ObsValue;
 import java.math.BigDecimal;
@@ -78,6 +79,40 @@ public class InitiationExtractor implements DataExtractor {
     private static final String EDUCATION_LEVEL_UUID = "1712AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // Niveau d'éducation
     private static final String RELIGION_UUID        = "162894AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // Religion
 
+    // --- Pediatric concepts (Fiche initiale enfant) -------------------------
+    // Birth / clinical baby
+    private static final String BIRTH_WEIGHT_UUID       = "1406AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String BIRTH_LENGTH_UUID       = "1835AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String HEAD_CIRC_UUID          = "163587AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String APGAR_UUID              = "1504AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String DELIVERY_MODE_UUID      = "163568AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String DELIVERED_FACILITY_UUID = "164738AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    // Mother PTME
+    private static final String MOTHER_RECEIVED_PTME_UUID = "164475AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String MOTHER_HIV_STATUS_UUID    = "1396AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String MOTHER_VITAL_STATUS_UUID  = "163646AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String MOTHER_PTME_REGIMEN_UUID  = "165213AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String INFANT_PROPHY_GIVEN_UUID  = "163605AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String INFANT_PROTOCOL_UUID      = "163638AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    // Nutrition / suivi
+    private static final String FEEDING_MODE_UUID         = "163584AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String WEANING_DATE_UUID         = "163510AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String VACCINATIONS_UUID         = "1197AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    // Family / context (coded only)
+    private static final String FATHER_VITAL_UUID         = "163647AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String FATHER_EDUCATION_UUID     = "164457AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String FATHER_ACTIVITY_UUID      = "164462AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String MOTHER_EDUCATION_UUID     = "164458AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String MOTHER_ACTIVITY_UUID      = "164461AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String GUARDIAN_VITAL_UUID       = "164467AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String GUARDIAN_EDUCATION_UUID   = "164468AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String GUARDIAN_ACTIVITY_UUID    = "164470AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String GUARDIAN_HIV_STATUS_UUID  = "164471AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    // Other
+    private static final String ADMISSION_DATE_UUID       = "164488AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String SCHOOLING_STATUS_UUID     = "164746AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    private static final String SCREENING_CODE_UUID       = "164072AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
     private static final java.util.Set<String> MAPPED = java.util.Set.of(
             ARV_START_DATE_UUID, HIV_TEST_DATE_UUID,
             HIV_TYPE_UUID, ENTRY_POINT_UUID,
@@ -88,6 +123,18 @@ public class InitiationExtractor implements DataExtractor {
             TB_HISTORY_UUID, ARV_HISTORY_UUID, TRANSFUSION_HISTORY_UUID,
             PTME_HISTORY_UUID, PTME_REGIMEN_HIST_UUID, PTME_HISTORY_DATE_UUID,
             MARITAL_STATUS_UUID, BIRTH_PLACE_UUID, EDUCATION_LEVEL_UUID, RELIGION_UUID);
+
+    private static final java.util.Set<String> MAPPED_PEDIATRIC = java.util.Set.of(
+            BIRTH_WEIGHT_UUID, BIRTH_LENGTH_UUID, HEAD_CIRC_UUID, APGAR_UUID,
+            DELIVERY_MODE_UUID, DELIVERED_FACILITY_UUID,
+            MOTHER_RECEIVED_PTME_UUID, MOTHER_HIV_STATUS_UUID, MOTHER_VITAL_STATUS_UUID,
+            MOTHER_PTME_REGIMEN_UUID, INFANT_PROPHY_GIVEN_UUID, INFANT_PROTOCOL_UUID,
+            FEEDING_MODE_UUID, WEANING_DATE_UUID, VACCINATIONS_UUID,
+            FATHER_VITAL_UUID, FATHER_EDUCATION_UUID, FATHER_ACTIVITY_UUID,
+            MOTHER_EDUCATION_UUID, MOTHER_ACTIVITY_UUID,
+            GUARDIAN_VITAL_UUID, GUARDIAN_EDUCATION_UUID, GUARDIAN_ACTIVITY_UUID,
+            GUARDIAN_HIV_STATUS_UUID,
+            ADMISSION_DATE_UUID, SCHOOLING_STATUS_UUID, SCREENING_CODE_UUID);
 
     private final JdbcTemplate localDb;
     private final ObsPivot obsPivot;
@@ -184,10 +231,15 @@ public class InitiationExtractor implements DataExtractor {
             String educationLevel = ObsPivot.asString(obs.get(EDUCATION_LEVEL_UUID));
             String religion = ObsPivot.asString(obs.get(RELIGION_UUID));
 
-            // Catch-all
+            // Pediatric extension — emit only if at least one pediatric obs is present.
+            PediatricInitiationDto pediatric = buildPediatric(obs);
+
+            // Catch-all (excludes both adult-mapped AND pediatric-mapped concepts;
+            // PII concepts are already filtered out by ObsPivot itself).
             Map<String, Object> extra = new LinkedHashMap<>();
             for (Map.Entry<String, ObsValue> e : obs.entrySet()) {
                 if (MAPPED.contains(e.getKey())) continue;
+                if (MAPPED_PEDIATRIC.contains(e.getKey())) continue;
                 extra.put(e.getKey(), ObsPivot.asString(e.getValue()));
             }
 
@@ -220,6 +272,7 @@ public class InitiationExtractor implements DataExtractor {
                     birthPlace,
                     educationLevel,
                     religion,
+                    pediatric,
                     extra.isEmpty() ? null : extra,
                     r.voided);
 
@@ -227,6 +280,72 @@ public class InitiationExtractor implements DataExtractor {
         }
         log.debug("Extracted {} initiation(s) since {}", out.size(), since);
         return out;
+    }
+
+    /**
+     * Build the pediatric extension DTO from the obs map. Returns null when
+     * none of the pediatric concepts have a value — adult enrolments thus
+     * carry no pediatric extension at all.
+     */
+    private static PediatricInitiationDto buildPediatric(Map<String, ObsValue> obs) {
+        BigDecimal birthWeight = ObsPivot.asDecimal(obs.get(BIRTH_WEIGHT_UUID));
+        BigDecimal birthLength = ObsPivot.asDecimal(obs.get(BIRTH_LENGTH_UUID));
+        BigDecimal headCirc = ObsPivot.asDecimal(obs.get(HEAD_CIRC_UUID));
+        Short apgar = ObsPivot.asShort(obs.get(APGAR_UUID));
+        String deliveryMode = ObsPivot.asString(obs.get(DELIVERY_MODE_UUID));
+        String deliveredFacility = ObsPivot.asString(obs.get(DELIVERED_FACILITY_UUID));
+
+        String motherReceivedPtme = ObsPivot.asString(obs.get(MOTHER_RECEIVED_PTME_UUID));
+        String motherHivStatus = ObsPivot.asString(obs.get(MOTHER_HIV_STATUS_UUID));
+        String motherVitalStatus = ObsPivot.asString(obs.get(MOTHER_VITAL_STATUS_UUID));
+        String motherPtmeRegimen = ObsPivot.asString(obs.get(MOTHER_PTME_REGIMEN_UUID));
+        String infantProphyGiven = ObsPivot.asString(obs.get(INFANT_PROPHY_GIVEN_UUID));
+        String infantProtocol = ObsPivot.asString(obs.get(INFANT_PROTOCOL_UUID));
+
+        String feedingMode = ObsPivot.asString(obs.get(FEEDING_MODE_UUID));
+        LocalDate weaningDate = ObsPivot.asDate(obs.get(WEANING_DATE_UUID));
+        String vaccinations = ObsPivot.asString(obs.get(VACCINATIONS_UUID));
+
+        String fatherVital = ObsPivot.asString(obs.get(FATHER_VITAL_UUID));
+        String fatherEducation = ObsPivot.asString(obs.get(FATHER_EDUCATION_UUID));
+        String fatherActivity = ObsPivot.asString(obs.get(FATHER_ACTIVITY_UUID));
+        String motherEducation = ObsPivot.asString(obs.get(MOTHER_EDUCATION_UUID));
+        String motherActivity = ObsPivot.asString(obs.get(MOTHER_ACTIVITY_UUID));
+        String guardianVital = ObsPivot.asString(obs.get(GUARDIAN_VITAL_UUID));
+        String guardianEducation = ObsPivot.asString(obs.get(GUARDIAN_EDUCATION_UUID));
+        String guardianActivity = ObsPivot.asString(obs.get(GUARDIAN_ACTIVITY_UUID));
+        String guardianHivStatus = ObsPivot.asString(obs.get(GUARDIAN_HIV_STATUS_UUID));
+
+        LocalDate admissionDate = ObsPivot.asDate(obs.get(ADMISSION_DATE_UUID));
+        String schoolingStatus = ObsPivot.asString(obs.get(SCHOOLING_STATUS_UUID));
+        String screeningCode = ObsPivot.asString(obs.get(SCREENING_CODE_UUID));
+
+        // Did any pediatric concept produce a non-null value?
+        Object[] all = {
+                birthWeight, birthLength, headCirc, apgar, deliveryMode, deliveredFacility,
+                motherReceivedPtme, motherHivStatus, motherVitalStatus, motherPtmeRegimen,
+                infantProphyGiven, infantProtocol,
+                feedingMode, weaningDate, vaccinations,
+                fatherVital, fatherEducation, fatherActivity,
+                motherEducation, motherActivity,
+                guardianVital, guardianEducation, guardianActivity, guardianHivStatus,
+                admissionDate, schoolingStatus, screeningCode
+        };
+        boolean anyPresent = false;
+        for (Object o : all) {
+            if (o != null) { anyPresent = true; break; }
+        }
+        if (!anyPresent) return null;
+
+        return new PediatricInitiationDto(
+                birthWeight, birthLength, headCirc, apgar, deliveryMode, deliveredFacility,
+                motherReceivedPtme, motherHivStatus, motherVitalStatus, motherPtmeRegimen,
+                infantProphyGiven, infantProtocol,
+                feedingMode, weaningDate, vaccinations,
+                fatherVital, fatherEducation, fatherActivity,
+                motherEducation, motherActivity,
+                guardianVital, guardianEducation, guardianActivity, guardianHivStatus,
+                admissionDate, schoolingStatus, screeningCode);
     }
 
     private record EncounterRow(

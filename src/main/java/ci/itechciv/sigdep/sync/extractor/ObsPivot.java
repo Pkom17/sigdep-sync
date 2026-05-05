@@ -21,10 +21,51 @@ import org.springframework.stereotype.Component;
 @Component
 public class ObsPivot {
 
+    /**
+     * PII concepts that must never leave the agent. Identifying free-text
+     * (names, phone numbers, precise addresses) is dropped silently — the
+     * central hub stores aggregated, non-identifying data only (spec §6.4).
+     *
+     * Blocking here in ObsPivot rather than in each extractor guarantees
+     * we cannot accidentally let one through, and it keeps extra_data
+     * JSONB on the hub free of PII as well.
+     */
+    private static final java.util.Set<String> BLOCKED_CONCEPTS = java.util.Set.of(
+            // Names (parents, guardian, support contact)
+            "1593AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Nom de la mère
+            "1594AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Nom du père
+            "163603AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Prénoms du tuteur légal
+            "162887AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Prénom personne de soutien
+            "164513AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Nom personne de soutien
+            // Phone numbers
+            "164463AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Téléphone du père
+            "164464AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Cellulaire du père
+            "164465AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Téléphone de la mère
+            "164466AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Cellulaire de la mère
+            "164472AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Téléphone du tuteur
+            "164473AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Cellulaire du tuteur
+            "160642AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Téléphone personne de soutien
+            "164500AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Téléphone Fixe patient
+            "164501AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Cellulaire patient
+            // Free-text "current activity" (occupation as free text — code/type goes through)
+            "164459AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Activité actuelle du père
+            "164460AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Activité actuelle de la mère
+            "164469AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Activité actuelle du tuteur
+            // Precise addresses
+            "164515AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Adresse personne de soutien
+            "164449AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",   // Commune/village (precise)
+            "163617AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"    // Quartier
+    );
+
     private final JdbcTemplate localDb;
 
     public ObsPivot(@Qualifier("localJdbcTemplate") JdbcTemplate localDb) {
         this.localDb = localDb;
+    }
+
+    /** Read-only view, exposed so extractors can use it for sanity checks if needed. */
+    public static java.util.Set<String> blockedConcepts() {
+        return BLOCKED_CONCEPTS;
     }
 
     /**
@@ -73,6 +114,9 @@ public class ObsPivot {
                 rs -> {
                     long eid = rs.getLong("encounter_id");
                     String conceptUuid = rs.getString("concept_uuid");
+
+                    // PII filter: PII concepts never leave the agent.
+                    if (BLOCKED_CONCEPTS.contains(conceptUuid)) return;
 
                     // Read value_coded first so its wasNull() is captured before
                     // any subsequent getXxx() overwrites it.
