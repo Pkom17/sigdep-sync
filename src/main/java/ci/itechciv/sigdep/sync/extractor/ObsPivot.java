@@ -60,15 +60,18 @@ public class ObsPivot {
                     long eid = rs.getLong("encounter_id");
                     String conceptUuid = rs.getString("concept_uuid");
 
+                    // Read value_coded first so its wasNull() is captured before
+                    // any subsequent getXxx() overwrites it.
+                    long coded = rs.getLong("value_coded");
+                    boolean codedNull = rs.wasNull();
+
                     BigDecimal num = rs.getBigDecimal("value_numeric");
                     Timestamp dt = rs.getTimestamp("value_datetime");
                     String text = rs.getString("value_text");
-                    long coded = rs.getLong("value_coded");
-                    boolean codedNull = rs.wasNull();
                     String codedName = rs.getString("coded_name");
 
                     ObsValue v;
-                    if (num != null && !rs.wasNull()) {
+                    if (num != null) {
                         v = ObsValue.numeric(num);
                     } else if (dt != null) {
                         v = ObsValue.datetime(dt);
@@ -100,8 +103,31 @@ public class ObsPivot {
     }
 
     public static Short asShort(ObsValue v) {
-        if (v == null || v.numeric == null) return null;
-        return v.numeric.shortValueExact();
+        if (v == null) return null;
+        if (v.numeric != null) {
+            try { return v.numeric.shortValueExact(); }
+            catch (ArithmeticException e) { return null; }
+        }
+        // Some sites store vital signs (BP, etc.) in value_text rather than
+        // value_numeric. Try to parse if it looks like a number.
+        if (v.text != null && !v.text.isBlank()) {
+            try { return Short.parseShort(v.text.trim()); }
+            catch (NumberFormatException e) { return null; }
+        }
+        return null;
+    }
+
+    public static Integer asInt(ObsValue v) {
+        if (v == null) return null;
+        if (v.numeric != null) {
+            try { return v.numeric.intValueExact(); }
+            catch (ArithmeticException e) { return null; }
+        }
+        if (v.text != null && !v.text.isBlank()) {
+            try { return Integer.parseInt(v.text.trim()); }
+            catch (NumberFormatException e) { return null; }
+        }
+        return null;
     }
 
     public static String asString(ObsValue v) {
