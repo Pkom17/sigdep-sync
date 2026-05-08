@@ -4,6 +4,7 @@ import ci.itechciv.sigdep.contracts.EntityType;
 import ci.itechciv.sigdep.contracts.dto.TptRecordDto;
 import ci.itechciv.sigdep.sync.extractor.ObsPivot.ObsValue;
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -34,19 +35,23 @@ public class TptExtractor implements DataExtractor {
     // Encounter type UUIDs
     private static final String TPT_FOLLOWUP_UUID = "aac089d5-c842-11eb-a01e-00090faa0001"; // PEC - Suivi TPT
     private static final String TPT_OUTCOME_UUID  = "aac582f9-c842-11eb-a01e-00090faa0001"; // PEC - Issue TPT
+    private static final String FOLLOWUP_VISIT_UUID = "8d5b2be0-c2cc-11de-8d13-0010c6dffd0f"; // PEC - Suivi patient
 
     // Mapped concepts
     private static final String TPT_FOLLOWUP_DATE_UUID = "165234AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // Date de visite TPT
     private static final String TPT_END_DATE_UUID      = "165202AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // Date de fin du TPT
     private static final String TPT_OUTCOME_CONCEPT    = "165243AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // Issue TPT
     private static final String TPT_ORDER_NUMBER_UUID  = "165244AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // Numero d'ordre TPT
+    private static final String TPT_STATUS_UUID        = "165049AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // Traitement TPT (Début/Fin/En cours/Pas)
+    private static final String TPT_REGIMEN_UUID       = "165319AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // Protocole TPT (3HP, 6H, INH, …)
     private static final String ADHERENCE_UUID         = "165200AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // Observation traitement préventif
     private static final String WEIGHT_UUID            = "5089AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";   // Poids
     private static final String NEXT_VISIT_UUID        = "5096AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";   // Date prochaine visite
 
     private static final java.util.Set<String> MAPPED = java.util.Set.of(
             TPT_FOLLOWUP_DATE_UUID, TPT_END_DATE_UUID, TPT_OUTCOME_CONCEPT,
-            TPT_ORDER_NUMBER_UUID, ADHERENCE_UUID, WEIGHT_UUID, NEXT_VISIT_UUID);
+            TPT_ORDER_NUMBER_UUID, TPT_STATUS_UUID, TPT_REGIMEN_UUID,
+            ADHERENCE_UUID, WEIGHT_UUID, NEXT_VISIT_UUID);
 
     private final JdbcTemplate localDb;
     private final ObsPivot obsPivot;
@@ -111,6 +116,19 @@ public class TptExtractor implements DataExtractor {
             LocalDate endDate = ObsPivot.asDate(obs.get(TPT_END_DATE_UUID));
             String outcome = ObsPivot.asString(obs.get(TPT_OUTCOME_CONCEPT));
             String orderNumber = ObsPivot.asString(obs.get(TPT_ORDER_NUMBER_UUID));
+            String tptStatus = ObsPivot.asString(obs.get(TPT_STATUS_UUID));
+            String tptRegimen = ObsPivot.asString(obs.get(TPT_REGIMEN_UUID));
+            // The TPT obs are usually captured on the routine "PEC - Suivi
+            // patient" encounter, not on the dedicated TPT one — fall back
+            // to the most recent suivi-patient encounter for this patient
+            // up to and including the TPT encounter's date.
+            LocalDate recordDate = r.encounterDatetime == null ? null
+                    : r.encounterDatetime.toLocalDateTime().toLocalDate();
+            if ((tptStatus == null || tptRegimen == null) && recordDate != null) {
+                Map<String, ObsValue> latest = latestSuiviPatientObs(r.patientUuid, recordDate);
+                if (tptStatus == null)  tptStatus  = ObsPivot.asString(latest.get(TPT_STATUS_UUID));
+                if (tptRegimen == null) tptRegimen = ObsPivot.asString(latest.get(TPT_REGIMEN_UUID));
+            }
             String adherence = ObsPivot.asString(obs.get(ADHERENCE_UUID));
             BigDecimal weight = ObsPivot.asDecimal(obs.get(WEIGHT_UUID));
             LocalDate nextVisit = ObsPivot.asDate(obs.get(NEXT_VISIT_UUID));
@@ -131,6 +149,8 @@ public class TptExtractor implements DataExtractor {
                     endDate,
                     outcome,
                     orderNumber,
+                    tptStatus,
+                    tptRegimen,
                     adherence,
                     weight,
                     nextVisit,
@@ -141,6 +161,32 @@ public class TptExtractor implements DataExtractor {
         }
         log.debug("Extracted {} TPT record(s) since {}", out.size(), since);
         return out;
+    }
+
+    /**
+     * Pivot the obs of the most recent "PEC - Suivi patient" encounter for
+     * this patient on or before {@code asOf}. Used as a fallback to fill
+     * tpt_status / tpt_regimen on TPT records, since those obs are saved on
+     * the routine visit, not on the dedicated PEC - Suivi TPT encounter.
+     */
+    private Map<String, ObsValue> latestSuiviPatientObs(UUID patientUuid, LocalDate asOf) {
+        List<Long> ids = localDb.queryForList(
+                """
+                SELECT e.encounter_id
+                FROM encounter e
+                JOIN encounter_type et ON et.encounter_type_id = e.encounter_type
+                JOIN person  per       ON per.person_id  = e.patient_id
+                WHERE et.uuid = ?
+                  AND per.uuid = ?
+                  AND e.voided = 0
+                  AND DATE(e.encounter_datetime) <= ?
+                ORDER BY e.encounter_datetime DESC
+                LIMIT 1
+                """,
+                Long.class,
+                FOLLOWUP_VISIT_UUID, patientUuid.toString(), Date.valueOf(asOf));
+        if (ids.isEmpty()) return Map.of();
+        return obsPivot.pivot(ids).getOrDefault(ids.get(0), Map.of());
     }
 
     private record EncounterRow(

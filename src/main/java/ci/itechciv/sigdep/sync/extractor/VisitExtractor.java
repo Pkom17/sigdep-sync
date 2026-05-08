@@ -64,6 +64,10 @@ public class VisitExtractor implements DataExtractor {
     private static final String NEXT_VISIT_DATE_UUID   = "5096AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";  // Return visit date
     private static final String BREASTFEEDING_UUID     = "164764AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // Allaitement en cours
 
+    // TPT — captured on the routine PEC - Suivi patient encounters
+    private static final String TPT_STATUS_UUID        = "165049AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // Traitement TPT (Début/Fin/En cours/Pas)
+    private static final String TPT_REGIMEN_UUID       = "165319AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // Protocole TPT (3HP, 6H, INH, …)
+
     private static final java.util.Set<String> MAPPED = java.util.Set.of(
             WEIGHT_KG_UUID, HEIGHT_CM_UUID, BMI_UUID,
             TEMPERATURE_C_UUID, PULSE_UUID, RESP_RATE_UUID,
@@ -71,7 +75,8 @@ public class VisitExtractor implements DataExtractor {
             WHO_STAGE_UUID, VIRAL_LOAD_UUID, VIRAL_LOAD_DATE_UUID,
             CD4_COUNT_UUID, CD4_DATE_UUID,
             ARV_REGIMEN_UUID, ARV_TREATMENT_DAYS_UUID, COTRIM_DAYS_UUID,
-            NEXT_VISIT_DATE_UUID, BREASTFEEDING_UUID);
+            NEXT_VISIT_DATE_UUID, BREASTFEEDING_UUID,
+            TPT_STATUS_UUID, TPT_REGIMEN_UUID);
 
     private final JdbcTemplate localDb;
     private final ObsPivot obsPivot;
@@ -158,6 +163,8 @@ public class VisitExtractor implements DataExtractor {
             // Visit cycle & status
             LocalDate nextVisit = ObsPivot.asDate(obs.get(NEXT_VISIT_DATE_UUID));
             String breastfeeding = ObsPivot.asString(obs.get(BREASTFEEDING_UUID));
+            String tptStatus = ObsPivot.asString(obs.get(TPT_STATUS_UUID));
+            String tptRegimen = ObsPivot.asString(obs.get(TPT_REGIMEN_UUID));
 
             // Everything that wasn't mapped goes to extra_data, keyed by concept UUID.
             Map<String, Object> extra = new LinkedHashMap<>();
@@ -200,6 +207,8 @@ public class VisitExtractor implements DataExtractor {
                     cd4Count,
                     cd4Date,
                     breastfeeding,
+                    tptStatus,
+                    tptRegimen,
                     extra.isEmpty() ? null : extra,
                     r.voided);
 
