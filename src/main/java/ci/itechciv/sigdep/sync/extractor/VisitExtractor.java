@@ -15,6 +15,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -29,6 +30,7 @@ import org.springframework.stereotype.Component;
  * without touching the agent.
  */
 @Component
+@Order(30)
 public class VisitExtractor implements DataExtractor {
 
     private static final Logger log = LoggerFactory.getLogger(VisitExtractor.class);
