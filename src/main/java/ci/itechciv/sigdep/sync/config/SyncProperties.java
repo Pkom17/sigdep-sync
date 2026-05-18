@@ -13,7 +13,12 @@ public record SyncProperties(
         LocalDateTime watermarkInitial,
         Map<String, String> identifierMapping,
         Keycloak keycloak,
-        Backfill backfill
+        Backfill backfill,
+        // How many times we re-push a record the hub rejected before parking
+        // it in DEAD_LETTER. Tuned so transient FK ordering issues
+        // (UNKNOWN_PATIENT during initial backfill) resolve themselves while
+        // genuinely bad data stops looping. Default 10.
+        int maxRejectAttempts
 ) {
     public record Keycloak(String issuerUrl, String clientId, String clientSecret) {}
 

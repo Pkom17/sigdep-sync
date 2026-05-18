@@ -80,6 +80,7 @@ Key variables:
 | `SIGDEP_KEYCLOAK_CLIENT_SECRET`      | Secret for the `sigdep-agent` confidential client    |
 | `SIGDEP_SYNC_INTERVAL_MINUTES`       | How often to run a sync cycle (default 15 min)       |
 | `SIGDEP_BATCH_SIZE`                  | Max records per HTTP call (default 500)              |
+| `SIGDEP_MAX_REJECT_ATTEMPTS`         | Retries before a reject lands in DEAD_LETTER (default 10) |
 
 The systemd unit (`packaging/systemd/sigdep-sync.service`) reads the
 same file format via `EnvironmentFile=`. In production, install the
@@ -146,16 +147,81 @@ Both can point at the `.env` file as the source of environment
 variables. A reference config is on the roadmap; for now, copy from a
 similar Java service on the target host.
 
+## Robustness model
+
+The agent guarantees that no record extracted from OpenMRS gets silently
+lost on its way to the hub. Three building blocks:
+
+1. **Idempotent upserts on the hub** keyed by `(site_id, source_uuid)`.
+   The agent can re-push the same record any number of times without
+   creating duplicates.
+2. **The SQLite outbox** as a durable queue. Every extract goes through
+   it; the agent only advances its watermark once the hub has fully
+   accepted the page. A crash mid-cycle re-sends from the last persisted
+   watermark, not from where extraction left off.
+3. **A per-record retry loop for hub-side rejects.** When the hub returns
+   `accepted=N, rejected=M`, the agent splits the page by sourceUuid:
+   accepted rows go to `SENT`, rejected ones to `REJECTED` with the
+   error code/message. On the next cycle, `REJECTED` rows are pushed
+   again **before** new extracts, so an FK-coherent ordering issue
+   (`UNKNOWN_PATIENT` during initial backfill) resolves itself once
+   the missing parent record arrives.
+
+After `SIGDEP_MAX_REJECT_ATTEMPTS` failed retries (default 10), a row
+moves to `DEAD_LETTER`. The hub records every reject in
+`audit.rejected_record`, surfaced on the **Synchronisation → Rejets**
+page of the console: an admin can see the exact source UUID, error
+message, click "Résoudre" once the underlying data is fixed.
+
+State transitions:
+
+```
+   extract ──► PENDING ──push──► ┌── accepted (hub) ──► SENT (terminal)
+                                  │
+                                  └── rejected (hub) ──► REJECTED
+                                                              │
+                                                              │ retry on
+                                                              ▼ next cycle
+                                                          (back to push)
+                                                              │
+                                                              ▼
+                                          attempts ≥ max ──► DEAD_LETTER
+                                                              │
+                                                              │ manual
+                                                              ▼ "Résoudre"
+                                                          (still in outbox,
+                                                           but agent ignores)
+```
+
+The watermark is **only advanced when a page is fully accepted**. If
+anything in the page got rejected, the watermark stays where it was so
+the extractor doesn't move past the window — the same records will be
+re-extracted, get dedup'd against the outbox (in-place update on
+`source_uuid`), and tried again.
+
 ## Operations
 
 ### Watch the buffer
 
 ```bash
+# Schema and counts per status
 sqlite3 /var/lib/sigdep-agent/buffer.sqlite '.schema'
 sqlite3 /var/lib/sigdep-agent/buffer.sqlite \
-  'SELECT entity_type, COUNT(*) FROM outbox GROUP BY entity_type;'
+  'SELECT entity_type, status, COUNT(*) FROM outbox GROUP BY entity_type, status;'
+
+# Watermarks
 sqlite3 /var/lib/sigdep-agent/buffer.sqlite \
-  'SELECT entity_type, last_watermark FROM watermarks;'
+  'SELECT entity_type, last_watermark, last_status FROM sync_state;'
+
+# Inspect rejected rows (will be retried automatically)
+sqlite3 /var/lib/sigdep-agent/buffer.sqlite \
+  "SELECT id, entity_type, source_uuid, attempts, substr(last_error, 1, 80) AS err
+   FROM outbox WHERE status='REJECTED' ORDER BY attempts DESC LIMIT 20;"
+
+# Inspect stuck rows (DEAD_LETTER — manual action required on the hub)
+sqlite3 /var/lib/sigdep-agent/buffer.sqlite \
+  "SELECT id, entity_type, source_uuid, attempts, substr(last_error, 1, 80) AS err
+   FROM outbox WHERE status='DEAD_LETTER' ORDER BY id LIMIT 20;"
 ```
 
 ### Force a fresh full sync
