@@ -5,6 +5,7 @@ import ci.itechciv.sigdep.contracts.dto.ClosureDto;
 import ci.itechciv.sigdep.contracts.dto.DispensationDto;
 import ci.itechciv.sigdep.contracts.dto.LabResultDto;
 import ci.itechciv.sigdep.contracts.dto.PatientDto;
+import ci.itechciv.sigdep.contracts.dto.ScreeningDto;
 import ci.itechciv.sigdep.contracts.dto.TptRecordDto;
 import ci.itechciv.sigdep.contracts.dto.TreatmentInitiationDto;
 import ci.itechciv.sigdep.contracts.dto.VisitDto;
@@ -23,7 +24,8 @@ public final class PayloadTypes {
             Map.entry(EntityType.TREATMENT_INITIATIONS, TreatmentInitiationDto.class),
             Map.entry(EntityType.CLOSURES,              ClosureDto.class),
             Map.entry(EntityType.LAB_RESULTS,           LabResultDto.class),
-            Map.entry(EntityType.TPT_RECORDS,           TptRecordDto.class)
+            Map.entry(EntityType.TPT_RECORDS,           TptRecordDto.class),
+            Map.entry(EntityType.SCREENINGS,            ScreeningDto.class)
     );
 
     public static Class<?> classFor(EntityType type) {
