@@ -14,7 +14,7 @@
 
 services:
   sigdep-sync:
-    image: ghcr.io/pkom17/sigdep-sync:${SIGDEP_SYNC_TAG:-latest}
+    image: ghcr.io/itech-ci/sigdep-sync:${SIGDEP_SYNC_TAG:-latest}
     container_name: sigdep-sync
     restart: unless-stopped
 

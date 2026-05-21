@@ -166,9 +166,9 @@ ghcr.io/<owner>/sigdep-sync:<version>
 ghcr.io/<owner>/sigdep-sync:latest
 ```
 
-`<owner>` correspond au compte GitHub qui pilote les releases (par
-exemple `pkom17` sur le fork de dev, `itech-ci` après bascule via la
-variable de repo `IMAGE_REGISTRY`). Un compose de référence avec
+`<owner>` est `itech-ci` (le compte GitHub officiel d'I-TECH Côte
+d'Ivoire qui publie les releases). Un fork peut surcharger la valeur
+via la variable de repo `IMAGE_REGISTRY`. Un compose de référence avec
 trois scénarios réseau (host gateway, réseau Docker existant,
 machine LAN distante) vit dans
 [`deploy/docker-compose.site.yml`](deploy/docker-compose.site.yml).

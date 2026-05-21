@@ -3,6 +3,14 @@
 Le format suit [Keep a Changelog](https://keepachangelog.com/) et
 adhère à [Semantic Versioning](https://semver.org/).
 
+## [1.0.3] — 2026-05-21
+
+### Documentation
+
+- README racine traduit en français.
+- Owner GHCR officiel figé sur `ghcr.io/itech-ci/sigdep-sync` dans
+  la documentation et dans `deploy/docker-compose.site.yml`.
+
 ## [1.0.2] — 2026-05-21
 
 ### Ajouté
