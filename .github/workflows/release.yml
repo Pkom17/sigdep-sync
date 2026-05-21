@@ -47,23 +47,27 @@ jobs:
         with:
           ref: ${{ steps.tag.outputs.tag }}
 
-      - name: Checkout sigdep-contracts (matching tag if it exists)
+      # Try the same tag first on sigdep-contracts ; fall back to master
+      # if the tag doesn't exist there (rare — they're usually released
+      # together). actions/checkout refuses paths outside the workspace
+      # so we put the sibling inside the workspace and reference it as
+      # ./.sigdep-contracts.
+      - name: Checkout sigdep-contracts (matching tag)
+        id: ck-contracts-tag
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/sigdep-contracts
-          # Try the same tag first ; fall back to master if the tag doesn't
-          # exist on contracts (rare — they're usually released together).
           ref: ${{ steps.tag.outputs.tag }}
-          path: ../sigdep-contracts
+          path: .sigdep-contracts
         continue-on-error: true
 
       - name: Fallback to contracts master if tag missing
-        if: failure()
+        if: steps.ck-contracts-tag.outcome == 'failure'
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/sigdep-contracts
           ref: master
-          path: ../sigdep-contracts
+          path: .sigdep-contracts
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -73,7 +77,7 @@ jobs:
           cache: maven
 
       - name: Install sigdep-contracts to local M2
-        working-directory: ../sigdep-contracts
+        working-directory: .sigdep-contracts
         run: mvn -B -DskipTests install
 
       - name: Build sigdep-sync fat jar
