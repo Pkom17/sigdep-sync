@@ -133,11 +133,16 @@ exactement où il en était.
   curl -fsSL %SIGDEP_CENTRAL_API_URL%/actuator/health
   curl -fsSL %SIGDEP_KEYCLOAK_URL%/realms/sigdep
   ```
-- Tester MySQL :
+- Tester MySQL avec le client en ligne (s'il est installé sur le poste) :
   ```
-  jre\bin\java.exe -cp sigdep-sync.jar org.testng.... (TODO commande JDBC ping)
+  mysql.exe -h <host> -u sigdep_reader -p openmrs -e "SELECT 1"
   ```
-  ou plus simple : `mysql.exe -u sigdep_reader -p openmrs -e "SELECT 1"`.
+  Si `mysql.exe` n'est pas disponible, lancer l'agent à la main pour
+  voir la stacktrace de connexion :
+  ```
+  jre\bin\java.exe -jar sigdep-sync.jar
+  ```
+  (Ctrl+C pour arrêter ; les erreurs JDBC sont explicites.)
 
 ### Beaucoup de rejets
 

@@ -89,6 +89,16 @@ accordingly.
 
 ## Build
 
+You only need to build from source if you're contributing to the
+agent or running unreleased changes. For deployment, prefer the
+pre-built artefacts published by the CI on each `v*.*.*` tag:
+
+- **Docker image** : `ghcr.io/<owner>/sigdep-sync:<version>`
+- **Windows ZIP** : `sigdep-sync-windows-<version>.zip` attached to
+  the GitHub Release of the tag.
+
+To build from source:
+
 ```bash
 # Install sigdep-contracts first (sibling project)
 git clone https://github.com/ITECH-CI/sigdep-contracts
@@ -122,7 +132,14 @@ For a local end-to-end test, point
 `SIGDEP_CENTRAL_API_URL=http://localhost:9000` at a running `sigdep-hub`
 dev stack (see that repo's README).
 
-## Deploy on a site (Linux)
+## Deploy on a site
+
+Three deployment modes are supported, picked per site according to
+what the host already runs. The end-to-end user guide is
+[`sigdep-hub/docs/user-guide/deploiement/installer-agent.md`](https://github.com/ITECH-CI/sigdep-hub/blob/master/docs/user-guide/deploiement/installer-agent.md)
+(French) — what follows is a one-paragraph pointer per mode.
+
+### Mode A — systemd (Linux)
 
 1. Copy the JAR to `/opt/sigdep-sync/sigdep-sync.jar`.
 2. Copy `packaging/systemd/sigdep-sync.service` to
@@ -134,18 +151,45 @@ dev stack (see that repo's README).
 5. `systemctl enable --now sigdep-sync`.
 6. Tail logs: `journalctl -u sigdep-sync -f`.
 
-## Deploy on a site (Windows)
+### Mode B — Docker
 
-A native Windows wrapper isn't shipped yet. Common options:
+Pre-built images are published to GHCR by the
+[`release.yml`](.github/workflows/release.yml) workflow on every
+`v*.*.*` tag:
 
-- **WinSW** (recommended) — drop a small XML config next to the JAR and
-  run `winsw.exe install`. Wraps it as a Windows service that survives
-  reboots.
-- **NSSM** — same idea, more flexible UI.
+```
+ghcr.io/<owner>/sigdep-sync:<version>
+ghcr.io/<owner>/sigdep-sync:latest
+```
 
-Both can point at the `.env` file as the source of environment
-variables. A reference config is on the roadmap; for now, copy from a
-similar Java service on the target host.
+`<owner>` is the GitHub user/org that runs the release pipeline (for
+example `pkom17` on the development fork, `itech-ci` once switched
+over via the `IMAGE_REGISTRY` repo variable). A reference compose
+file with three network scenarios (host gateway, joined Docker
+network, remote LAN) lives at [`deploy/docker-compose.site.yml`](deploy/docker-compose.site.yml).
+
+```bash
+cp deploy/docker-compose.site.yml /opt/sigdep-sync/docker-compose.yml
+cp deploy/.env.example /opt/sigdep-sync/.env
+# edit .env, then:
+docker compose -f /opt/sigdep-sync/docker-compose.yml up -d
+```
+
+### Mode C — Windows service (WinSW)
+
+A self-contained ZIP is attached to every GitHub Release:
+`sigdep-sync-windows-<version>.zip` (~80 MB). It bundles WinSW, the
+fat-jar and an embedded Temurin 17 JRE — no Java install required on
+the site PC.
+
+1. Download the ZIP from the [releases page](https://github.com/ITECH-CI/sigdep-sync/releases).
+2. Extract to a path **without spaces or accents** (e.g. `C:\sigdep-sync\`).
+3. Copy `sigdep-sync.env.example` to `.env`, fill the site values
+   (UTF-8 encoding — UTF-16 will not boot).
+4. Right-click `install-service.bat` → **Run as administrator**.
+
+See [`packaging/windows/README.md`](packaging/windows/README.md) for
+the full Windows runbook (logs, updates, troubleshooting).
 
 ## Robustness model
 
