@@ -27,9 +27,6 @@ jobs:
       packages: write   # required to push to GHCR
 
     env:
-      # Default registry is the same owner as the repo (Pkom17 on the
-      # fork, ITECH-CI on upstream). Override via repo variable.
-      IMAGE_REGISTRY: ${{ vars.IMAGE_REGISTRY || format('ghcr.io/{0}', github.repository_owner) }}
       IMAGE_NAME: sigdep-sync
 
     steps:
@@ -41,6 +38,21 @@ jobs:
           ref="${ref#refs/tags/}"
           echo "tag=$ref" >> $GITHUB_OUTPUT
           echo "version=${ref#v}" >> $GITHUB_OUTPUT
+
+      # Compute the image registry now (rather than as a static env)
+      # because docker requires lowercase repository names and
+      # github.repository_owner can be mixed-case ("Pkom17").
+      - name: Resolve image registry
+        id: registry
+        run: |
+          override="${{ vars.IMAGE_REGISTRY }}"
+          if [[ -n "$override" ]]; then
+            registry="$override"
+          else
+            owner="${{ github.repository_owner }}"
+            registry="ghcr.io/${owner,,}"
+          fi
+          echo "registry=$registry" >> $GITHUB_OUTPUT
 
       - name: Checkout sigdep-sync
         uses: actions/checkout@v4
@@ -99,8 +111,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.version }}
-            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ steps.registry.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.version }}
+            ${{ steps.registry.outputs.registry }}/${{ env.IMAGE_NAME }}:latest
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -112,5 +124,5 @@ jobs:
         run: |
           echo "### Image published" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ steps.registry.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ steps.registry.outputs.registry }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
