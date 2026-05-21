@@ -3,6 +3,25 @@
 Le format suit [Keep a Changelog](https://keepachangelog.com/) et
 adhère à [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] — 2026-05-21
+
+### Ajouté
+
+- **Packaging Windows** : ZIP `sigdep-sync-windows-<version>.zip`
+  attaché à chaque release GitHub, contenant WinSW (service
+  Windows natif), le fat-jar et un JRE Temurin 17 embarqué. Voir
+  `packaging/windows/README.md` pour la procédure d'installation.
+
+## [1.0.1] — 2026-05-21
+
+### Corrigé
+
+- CI : registre Docker en minuscules pour supporter les owners
+  GitHub à casse mixte.
+- CI : checkout sigdep-contracts placé dans le workspace
+  (`.sigdep-contracts/`) pour respecter la limite de
+  `actions/checkout`.
+
 ## [1.0.0] — 2026-05-21
 
 Première release fonctionnelle de l'agent SIGDEP-3. Exécuté côté
