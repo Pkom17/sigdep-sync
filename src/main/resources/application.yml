@@ -37,10 +37,6 @@ sigdep:
     buffer-db:
       jdbc-url: jdbc:sqlite:${SIGDEP_BUFFER_PATH:/var/lib/sigdep-agent/buffer.sqlite}
       driver-class-name: org.sqlite.JDBC
-    keycloak:
-      issuer-url: ${SIGDEP_KEYCLOAK_URL:http://localhost:8180}/realms/sigdep
-      client-id: ${SIGDEP_KEYCLOAK_CLIENT_ID:sigdep-agent}
-      client-secret: ${SIGDEP_KEYCLOAK_CLIENT_SECRET:}
     backfill:
       enabled: false
       max-requests-per-minute: 30
