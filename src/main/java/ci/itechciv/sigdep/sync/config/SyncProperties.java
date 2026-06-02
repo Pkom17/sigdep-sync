@@ -12,6 +12,10 @@ public record SyncProperties(
         int syncIntervalMinutes,
         LocalDateTime watermarkInitial,
         Map<String, String> identifierMapping,
+        // Clé API opaque (UUID) générée côté hub pour ce site, envoyée dans
+        // l'en-tête X-API-Key (auth v2.0, remplace Keycloak). Vide → aucune
+        // en-tête d'auth (profil dev du hub).
+        String apiKey,
         Keycloak keycloak,
         Backfill backfill,
         // How many times we re-push a record the hub rejected before parking
